@@ -126,46 +126,78 @@ let ``calculate last frame`` frame =
       Score = score
       Summery = summery }
 
+let ``calculate the current frame`` frame =
+    match frame with
+    | RegularFrame r -> ``calculate regular frame`` r
+    | LastFrame l -> ``calculate last frame`` l
+
+let recalculateTheFrameBefore frameBefore currentFrame =
+    match frameBefore.Type with
+    | Strike ->
+        { frameBefore with
+            Summery =
+                frameBefore.Summery
+                + getFirstTriesPoints currentFrame
+                + getSecondTriesPoints currentFrame }
+    | Spare ->
+        { frameBefore with
+            Summery =
+                frameBefore.Summery
+                + getFirstTriesPoints currentFrame }
+    | OpenFrame -> frameBefore
+
+let recalculateThePenultimateFrame penultimateFrame frameBefore currentFrame =
+    if frameBefore.Type = Strike
+       && penultimateFrame.Type = Strike then
+        { penultimateFrame with
+            Summery =
+                penultimateFrame.Summery
+                + getFirstTriesPoints currentFrame }
+    else
+        penultimateFrame
+
 let initialBoard: FrameOnBoard list = []
 
 let createBoard game =
     game
-    |> List.map (fun frame ->
-        match frame with
-        | RegularFrame r -> ``calculate regular frame`` r
-        | LastFrame l -> ``calculate last frame`` l)
+    |> List.map ``calculate the current frame``
     |> List.fold
-        (fun acc frameOnBoard ->
-            let frame = frameOnBoard.Frame
+        (fun acc currentFrameOnBoard ->
+            let currentFrame = currentFrameOnBoard.Frame
 
             let recalculated =
                 match acc with
                 | [] -> []
-                | last :: tail ->
-                    let lastRecalculated =
-                        match last.Type with
-                        | Strike ->
-                            { last with
-                                Summery =
-                                    last.Summery
-                                    + getFirstTriesPoints frame
-                                    + getSecondTriesPoints frame }
-                        | Spare -> { last with Summery = last.Summery + getFirstTriesPoints frame }
-                        | OpenFrame -> last
+                | frameBefore :: tail ->
+                    let recalculatedFrameBefore = recalculateTheFrameBefore frameBefore currentFrame
 
                     match tail with
-                    | [] -> [ lastRecalculated ]
-                    | beforeLast :: tail ->
-                        let beforeLastRecalculated =
-                            if last.Type = Strike && beforeLast.Type = Strike then
-                                { beforeLast with Summery = beforeLast.Summery + getFirstTriesPoints frame }
-                            else
-                                beforeLast
+                    | [] -> [ recalculatedFrameBefore ]
+                    | penultimateFrame :: tail ->
+                        let recalculatedPenultimateFrame =
+                            recalculateThePenultimateFrame penultimateFrame frameBefore currentFrame
 
-                        lastRecalculated :: beforeLastRecalculated :: tail
+                        let lastRecalculatedWithBeforeSum =
+                            { recalculatedFrameBefore with
+                                Summery =
+                                    recalculatedFrameBefore.Summery
+                                    + recalculatedPenultimateFrame.Summery }
 
-            frameOnBoard :: recalculated)
+                        lastRecalculatedWithBeforeSum
+                        :: recalculatedPenultimateFrame :: tail
+
+            let frameOnBoardWithLastSum =
+                match currentFrameOnBoard.Frame with
+                | RegularFrame _ -> currentFrameOnBoard
+                | LastFrame _ ->
+                    { currentFrameOnBoard with
+                        Summery =
+                            currentFrameOnBoard.Summery
+                            + recalculated.Head.Summery }
+
+            frameOnBoardWithLastSum :: recalculated)
         initialBoard
+
 
 let printBoard board =
     let frames = board |> List.rev
