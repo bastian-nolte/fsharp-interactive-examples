@@ -156,54 +156,45 @@ let recalculateThePenultimateFrame penultimateFrame frameBefore currentFrame =
     else
         penultimateFrame
 
+let recalculateStrikesAndSpares acc currentFrameOnBoard =
+    let currentFrame = currentFrameOnBoard.Frame
+
+    let recalculated =
+        match acc with
+        | [] -> []
+        | before :: tail ->
+            let frameBefore = recalculateTheFrameBefore before currentFrame
+
+            match tail with
+            | [] -> [ frameBefore ]
+            | penultimate :: tail ->
+                let penultimateFrame =
+                    recalculateThePenultimateFrame penultimate frameBefore currentFrame
+
+                frameBefore :: penultimateFrame :: tail
+
+    currentFrameOnBoard :: recalculated
+
+let summaizeBoard acc currentFrameOnBoard =
+    match acc with
+    | [] -> [ currentFrameOnBoard ]
+    | frameBefore :: tail ->
+        { currentFrameOnBoard with Summery = currentFrameOnBoard.Summery + frameBefore.Summery }
+        :: acc
+
 let initialBoard: FrameOnBoard list = []
 
 let createBoard game =
     game
     |> List.map ``calculate the current frame``
-    |> List.fold
-        (fun acc currentFrameOnBoard ->
-            let currentFrame = currentFrameOnBoard.Frame
-
-            let recalculated =
-                match acc with
-                | [] -> []
-                | frameBefore :: tail ->
-                    let recalculatedFrameBefore = recalculateTheFrameBefore frameBefore currentFrame
-
-                    match tail with
-                    | [] -> [ recalculatedFrameBefore ]
-                    | penultimateFrame :: tail ->
-                        let recalculatedPenultimateFrame =
-                            recalculateThePenultimateFrame penultimateFrame frameBefore currentFrame
-
-                        let lastRecalculatedWithBeforeSum =
-                            { recalculatedFrameBefore with
-                                Summery =
-                                    recalculatedFrameBefore.Summery
-                                    + recalculatedPenultimateFrame.Summery }
-
-                        lastRecalculatedWithBeforeSum
-                        :: recalculatedPenultimateFrame :: tail
-
-            let frameOnBoardWithLastSum =
-                match currentFrameOnBoard.Frame with
-                | RegularFrame _ -> currentFrameOnBoard
-                | LastFrame _ ->
-                    { currentFrameOnBoard with
-                        Summery =
-                            currentFrameOnBoard.Summery
-                            + recalculated.Head.Summery }
-
-            frameOnBoardWithLastSum :: recalculated)
-        initialBoard
-
+    |> List.fold recalculateStrikesAndSpares initialBoard
+    |> List.rev
+    |> List.fold summaizeBoard initialBoard
+    |> List.rev
 
 let printBoard board =
-    let frames = board |> List.rev
-
     let (scores, summeries) =
-        frames
+        board
         |> List.fold
             (fun acc frame ->
                 let scores, summeries = acc
