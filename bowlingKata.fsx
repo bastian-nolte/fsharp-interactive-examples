@@ -196,8 +196,7 @@ let printBoard board =
     let (scores, summeries) =
         board
         |> List.fold
-            (fun acc frame ->
-                let scores, summeries = acc
+            (fun (scores, summeries) frame ->
                 let newScores = sprintf "%s| %s " scores (frame.Score.PadLeft 7)
                 let newSummeries = sprintf "%s| %s " summeries (frame.Summery.ToString().PadRight 7)
                 (newScores, newSummeries))
